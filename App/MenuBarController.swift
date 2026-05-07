@@ -18,16 +18,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             return
         }
 
-        let image = NSImage(systemSymbolName: "rectangle.split.3x1", accessibilityDescription: "Slab")
-        image?.isTemplate = true
-        button.image = image
-        button.title = image == nil ? "⊞" : ""   // text fallback if symbol fails
+        button.image = nil
+        button.title = "Slab"
         button.toolTip = "Slab – Window Snap"
 
         let menu = buildMenu()
         menu.delegate = self
         statusItem.menu = menu
-        print("[Slab] Status item created, button frame: \(button.frame)")
     }
 
     // MARK: - Menu
@@ -48,8 +45,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         pickerItem.keyEquivalentModifierMask = [.control, .option]
         pickerItem.target = self
         menu.addItem(pickerItem)
-
-        menu.addItem(.separator())
 
         // Shortcuts reference (disabled = just a label)
         let hintItem = NSMenuItem(title: "⌃⌥ ← → ↑ ↓  Snap  |  ⌃⌥Z Unsnap", action: nil, keyEquivalent: "")

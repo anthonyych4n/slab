@@ -5,12 +5,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController!
     private var windowManager: WindowManager!
     private var snapDetector: SnapDetector!
+    private var snapAssist: SnapAssistController!
     private var hotkeyManager: HotkeyManager!
     private var preferencesWindow: PreferencesWindow?
     private var layoutPickerWindow: LayoutPickerWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        try? "launched".write(toFile: "/tmp/slab_launched.txt", atomically: true, encoding: .utf8)
         NSApp.setActivationPolicy(.accessory)
 
         menuBarController = MenuBarController()
@@ -30,13 +30,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         snapDetector?.stop()
         hotkeyManager?.teardown()
+        snapAssist?.dismiss()
     }
 
     private func initializeManagers() {
         windowManager = WindowManager()
+        snapAssist = SnapAssistController(windowManager: windowManager)
         layoutPickerWindow = LayoutPickerWindow(windowManager: windowManager)
+
         snapDetector = SnapDetector(windowManager: windowManager)
-        snapDetector.onRequestLayoutPicker = { [weak self] in self?.showLayoutPicker() }
+        snapDetector.onDidSnap = { [weak self] layout, zone, window, screen in
+            self?.snapAssist.begin(
+                layout: layout,
+                filledZone: zone,
+                filledWindow: window,
+                screen: screen
+            )
+        }
         snapDetector.start()
 
         hotkeyManager = HotkeyManager()

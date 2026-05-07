@@ -20,6 +20,46 @@ struct LeftThirdRightTwoThirds: LayoutTemplate {
     ]
 }
 
+struct LeftTwoThirdsRightThird: LayoutTemplate {
+    let id   = "rightThird"
+    let name = "⅔ | ⅓"
+    let icon = "rectangle.split.2x1"
+    let zones = [
+        LayoutZone(id: "left",  label: "Left",  unitRect: CGRect(x: 0.0,       y: 0, width: 2.0/3, height: 1.0)),
+        LayoutZone(id: "right", label: "Right", unitRect: CGRect(x: 2.0/3,     y: 0, width: 1.0/3, height: 1.0)),
+    ]
+}
+
+struct LeftThirtyRightSeventy: LayoutTemplate {
+    let id   = "leftThirty"
+    let name = "30 | 70"
+    let icon = "rectangle.split.2x1"
+    let zones = [
+        LayoutZone(id: "left",  label: "Left",  unitRect: CGRect(x: 0.0, y: 0, width: 0.3, height: 1.0)),
+        LayoutZone(id: "right", label: "Right", unitRect: CGRect(x: 0.3, y: 0, width: 0.7, height: 1.0)),
+    ]
+}
+
+struct LeftSeventyRightThirty: LayoutTemplate {
+    let id   = "rightThirty"
+    let name = "70 | 30"
+    let icon = "rectangle.split.2x1"
+    let zones = [
+        LayoutZone(id: "left",  label: "Left",  unitRect: CGRect(x: 0.0, y: 0, width: 0.7, height: 1.0)),
+        LayoutZone(id: "right", label: "Right", unitRect: CGRect(x: 0.7, y: 0, width: 0.3, height: 1.0)),
+    ]
+}
+
+struct TopBottomHalves: LayoutTemplate {
+    let id   = "topBottom"
+    let name = "Top | Bottom"
+    let icon = "rectangle.split.1x2"
+    let zones = [
+        LayoutZone(id: "top",    label: "Top",    unitRect: CGRect(x: 0.0, y: 0.5, width: 1.0, height: 0.5)),
+        LayoutZone(id: "bottom", label: "Bottom", unitRect: CGRect(x: 0.0, y: 0.0, width: 1.0, height: 0.5)),
+    ]
+}
+
 struct ThreeColumns: LayoutTemplate {
     let id   = "threeCol"
     let name = "Three Columns"
@@ -28,6 +68,28 @@ struct ThreeColumns: LayoutTemplate {
         LayoutZone(id: "left",   label: "Left",   unitRect: CGRect(x: 0.0,   y: 0, width: 1.0/3, height: 1.0)),
         LayoutZone(id: "center", label: "Center", unitRect: CGRect(x: 1.0/3, y: 0, width: 1.0/3, height: 1.0)),
         LayoutZone(id: "right",  label: "Right",  unitRect: CGRect(x: 2.0/3, y: 0, width: 1.0/3, height: 1.0)),
+    ]
+}
+
+struct MainLeftTwoRight: LayoutTemplate {
+    let id   = "mainLeftTwoRight"
+    let name = "Main + 2"
+    let icon = "rectangle.split.2x1"
+    let zones = [
+        LayoutZone(id: "main",        label: "Main",        unitRect: CGRect(x: 0.0,       y: 0.0, width: 2.0/3, height: 1.0)),
+        LayoutZone(id: "topRight",    label: "Top Right",   unitRect: CGRect(x: 2.0/3,     y: 0.5, width: 1.0/3, height: 0.5)),
+        LayoutZone(id: "bottomRight", label: "Bottom Right", unitRect: CGRect(x: 2.0/3,     y: 0.0, width: 1.0/3, height: 0.5)),
+    ]
+}
+
+struct TwoLeftMainRight: LayoutTemplate {
+    let id   = "twoLeftMainRight"
+    let name = "2 + Main"
+    let icon = "rectangle.split.2x1"
+    let zones = [
+        LayoutZone(id: "topLeft",    label: "Top Left",    unitRect: CGRect(x: 0.0,     y: 0.5, width: 1.0/3, height: 0.5)),
+        LayoutZone(id: "bottomLeft", label: "Bottom Left", unitRect: CGRect(x: 0.0,     y: 0.0, width: 1.0/3, height: 0.5)),
+        LayoutZone(id: "main",       label: "Main",        unitRect: CGRect(x: 1.0/3,   y: 0.0, width: 2.0/3, height: 1.0)),
     ]
 }
 
@@ -65,9 +127,6 @@ struct FullScreenLayout: LayoutTemplate {
 /// All built-in layouts in display order.
 let builtInLayouts: [AnyLayoutTemplate] = [
     AnyLayoutTemplate(LeftRightHalves()),
-    AnyLayoutTemplate(LeftThirdRightTwoThirds()),
+    AnyLayoutTemplate(TopBottomHalves()),
     AnyLayoutTemplate(ThreeColumns()),
-    AnyLayoutTemplate(QuadGrid()),
-    AnyLayoutTemplate(MainSidebar()),
-    AnyLayoutTemplate(FullScreenLayout()),
 ]
