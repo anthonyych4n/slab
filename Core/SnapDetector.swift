@@ -139,7 +139,7 @@ final class SnapDetector {
         // Edges
         if pt.x <= f.minX + t { return .leftHalf }
         if pt.x >= f.maxX - t { return .rightHalf }
-        if pt.y <= f.minY + t { return .topHalf }
+        if pt.y <= f.minY + t { return .full }       // top edge → maximize (Aero-style)
         if pt.y >= f.maxY - t { return .bottomHalf }
 
         return .none
