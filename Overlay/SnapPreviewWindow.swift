@@ -66,7 +66,9 @@ private final class PreviewContentView: NSView {
 
     private let blur: NSVisualEffectView = {
         let v = NSVisualEffectView()
-        v.material = .hudWindow
+        // .popover is lighter than .hudWindow and reads as a native macOS
+        // overlay rather than a dark debug surface.
+        v.material = .popover
         v.blendingMode = .behindWindow
         v.state = .active
         v.wantsLayer = true
@@ -96,9 +98,9 @@ private final class PreviewContentView: NSView {
         // Drop shadow lives on the host view (outside the blur's clipped layer)
         // so it can extend beyond the rounded corners.
         let shadow = NSShadow()
-        shadow.shadowBlurRadius = 24
-        shadow.shadowOffset = NSSize(width: 0, height: -4)
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+        shadow.shadowBlurRadius = 16
+        shadow.shadowOffset = NSSize(width: 0, height: -2)
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.25)
         self.shadow = shadow
 
         addSubview(blur)
@@ -112,15 +114,16 @@ private final class PreviewContentView: NSView {
 
         tintLayer.cornerRadius = 14
         tintLayer.cornerCurve = .continuous
+        // Subtle accent wash — outline reads first, fill second.
         tintLayer.backgroundColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.22).cgColor
+            .withAlphaComponent(0.10).cgColor
         blur.layer?.addSublayer(tintLayer)
 
         borderLayer.cornerRadius = 14
         borderLayer.cornerCurve = .continuous
-        borderLayer.borderWidth = 1.5
+        borderLayer.borderWidth = 1.0
         borderLayer.borderColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.95).cgColor
+            .withAlphaComponent(0.70).cgColor
         borderLayer.backgroundColor = NSColor.clear.cgColor
         blur.layer?.addSublayer(borderLayer)
     }
@@ -138,8 +141,9 @@ private final class PreviewContentView: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
+        // Subtle accent wash — outline reads first, fill second.
         tintLayer.backgroundColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.22).cgColor
+            .withAlphaComponent(0.10).cgColor
         borderLayer.borderColor = NSColor.controlAccentColor
             .withAlphaComponent(0.95).cgColor
     }

@@ -145,7 +145,9 @@ final class SnapFlyoutView: NSView {
         refreshZoneFrames()
 
         let bgPath = NSBezierPath(roundedRect: bounds, xRadius: 16, yRadius: 16)
-        NSColor.windowBackgroundColor.withAlphaComponent(0.94).setFill()
+        // Near-opaque so the preview tint behind it doesn't bleed through —
+        // the flyout must read as solidly above the snap preview.
+        NSColor.windowBackgroundColor.withAlphaComponent(0.98).setFill()
         bgPath.fill()
         NSColor.separatorColor.withAlphaComponent(0.35).setStroke()
         bgPath.lineWidth = 1

@@ -125,8 +125,20 @@ struct FullScreenLayout: LayoutTemplate {
 }
 
 /// All built-in layouts in display order.
+///
+/// Ordered roughly by frequency-of-use on landscape monitors. Orientation-aware
+/// presentation lives in the picker / flyout layer — this list stays canonical.
 let builtInLayouts: [AnyLayoutTemplate] = [
     AnyLayoutTemplate(LeftRightHalves()),
-    AnyLayoutTemplate(TopBottomHalves()),
+    AnyLayoutTemplate(LeftThirdRightTwoThirds()),
+    AnyLayoutTemplate(LeftTwoThirdsRightThird()),
     AnyLayoutTemplate(ThreeColumns()),
+    AnyLayoutTemplate(MainSidebar()),
+    AnyLayoutTemplate(QuadGrid()),
+    AnyLayoutTemplate(MainLeftTwoRight()),
+    AnyLayoutTemplate(TwoLeftMainRight()),
+    AnyLayoutTemplate(TopBottomHalves()),
+    AnyLayoutTemplate(LeftThirtyRightSeventy()),
+    AnyLayoutTemplate(LeftSeventyRightThirty()),
+    AnyLayoutTemplate(FullScreenLayout()),
 ]

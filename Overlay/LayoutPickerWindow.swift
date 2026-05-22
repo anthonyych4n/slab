@@ -10,7 +10,7 @@ final class LayoutPickerWindow: NSPanel {
     init(windowManager: WindowManager) {
         self.windowManager = windowManager
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 440),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
             backing: .buffered,
             defer: false
@@ -23,6 +23,12 @@ final class LayoutPickerWindow: NSPanel {
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .transient]
     }
+
+    // NSPanel + .nonactivatingPanel returns NO from canBecomeKey by default —
+    // forcing this on lets the picker receive Esc / arrow keys without
+    // stealing focus from the underlying app.
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 
     func show() {
         let windows = windowManager.enumerateWindows()
@@ -40,7 +46,7 @@ final class LayoutPickerWindow: NSPanel {
         )
 
         let hosting = NSHostingView(rootView: rootView)
-        hosting.frame = NSRect(x: 0, y: 0, width: 560, height: 440)
+        hosting.frame = NSRect(x: 0, y: 0, width: 600, height: 500)
         contentView = hosting
         self.hostingView = hosting
 
@@ -158,25 +164,26 @@ struct LayoutPickerRootView: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 12)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
-                    ForEach(layouts) { layout in
-                        LayoutCardView(layout: layout)
-                            .onTapGesture {
-                                // If single-zone layout (full screen), apply immediately
-                                if layout.zones.count == 1,
-                                   let frontWin = availableWindows.first {
-                                    let screen = NSScreen.main ?? NSScreen.screens[0]
-                                    let zone = layout.zones[0]
-                                    onApply([(zone, frontWin, screen)])
-                                } else {
-                                    selectedLayout = layout
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                        ForEach(layouts) { layout in
+                            LayoutCardView(layout: layout)
+                                .onTapGesture {
+                                    // Single-zone layouts (e.g. full screen) skip the
+                                    // app-picker step and apply to the front window.
+                                    if layout.zones.count == 1,
+                                       let frontWin = availableWindows.first {
+                                        let screen = NSScreen.main ?? NSScreen.screens[0]
+                                        let zone = layout.zones[0]
+                                        onApply([(zone, frontWin, screen)])
+                                    } else {
+                                        selectedLayout = layout
+                                    }
                                 }
-                            }
+                        }
                     }
+                    .padding(16)
                 }
-                .padding(16)
-
-                Spacer()
 
                 Button("Cancel", action: onCancel)
                     .padding(.bottom, 16)
@@ -194,23 +201,35 @@ private struct LayoutCardView: View {
 
     var body: some View {
         VStack(spacing: 6) {
+            // Use absolute .position(x:y:) inside a clipped GeometryReader so
+            // each zone is anchored to the card's own coordinate space. The
+            // previous offset-from-center math was correct but fragile and
+            // visually overflowed the card background; .position is dead
+            // simple and clipping protects against any future drift.
             GeometryReader { geo in
-                ZStack {
+                ZStack(alignment: .topLeading) {
+                    Color.clear
                     ForEach(layout.zones) { zone in
                         let w = zone.unitRect.width  * geo.size.width
                         let h = zone.unitRect.height * geo.size.height
-                        let x = zone.unitRect.minX   * geo.size.width  - geo.size.width  / 2 + w / 2
-                        let y = -(zone.unitRect.minY * geo.size.height - geo.size.height / 2 + h / 2)
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.accentColor.opacity(isHovered ? 0.3 : 0.15))
-                            .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 1))
-                            .frame(width: w - 3, height: h - 3)
-                            .offset(x: x, y: y)
+                        // unitRect uses Y-up (0 = bottom). Flip into SwiftUI's
+                        // Y-down coordinate space for the card.
+                        let x = zone.unitRect.minX * geo.size.width
+                        let y = geo.size.height - (zone.unitRect.minY + zone.unitRect.height) * geo.size.height
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.accentColor.opacity(isHovered ? 0.32 : 0.16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .strokeBorder(Color.accentColor.opacity(0.65), lineWidth: 1)
+                            )
+                            .frame(width: max(0, w - 3), height: max(0, h - 3))
+                            .position(x: x + w / 2, y: y + h / 2)
                     }
                 }
             }
             .frame(height: 60)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
 
             Text(layout.name)
                 .font(.caption2)

@@ -116,32 +116,38 @@ final class SnapDetector {
             return
         }
 
-        let edgeZone = hotZone(at: qPt, on: screen)
+        let hit = edgeHit(at: qPt, on: screen)
         let overFlyout = flyoutWindow.containsScreenPoint(akPt)
 
-        guard edgeZone != .none || overFlyout || flyoutWindow.isVisible else {
+        guard hit.zone != .none || overFlyout || flyoutWindow.isVisible else {
             previewWindow.hide()
             flyoutWindow.hide()
             state = .dragging(window: window)
             return
         }
 
-        if edgeZone != .none {
+        // Flyout opens only when crossing the top edge. On left/right edges
+        // we want a direct, low-friction snap with no chooser UI.
+        if hit.isTopEdge {
             flyoutWindow.show(on: screen, near: akPt)
+        } else if !overFlyout, flyoutWindow.isVisible {
+            // Cursor wandered off the top edge to a side edge — dismiss the
+            // chooser so it doesn't linger over a left/right snap preview.
+            flyoutWindow.hide()
         }
 
-        if let hit = flyoutWindow.zoneAt(screenPoint: akPt) {
+        if let fHit = flyoutWindow.zoneAt(screenPoint: akPt) {
             flyoutWindow.updateHover(screenPoint: akPt)
-            let zoneQuartz = hit.layout.quartzFrame(for: hit.zone, on: screen)
+            let zoneQuartz = fHit.layout.quartzFrame(for: fHit.zone, on: screen)
             previewWindow.show(at: ScreenManager.toAppKit(zoneQuartz), animated: true)
-            state = .inFlyoutZone(window: window, hit: hit, screen: screen, frame: zoneQuartz)
+            state = .inFlyoutZone(window: window, hit: fHit, screen: screen, frame: zoneQuartz)
             return
         }
         flyoutWindow.updateHover(screenPoint: akPt)
 
-        if edgeZone != .none, let frame = ScreenManager.frame(for: edgeZone, on: screen) {
+        if hit.zone != .none, let frame = ScreenManager.frame(for: hit.zone, on: screen) {
             previewWindow.show(at: ScreenManager.toAppKit(frame), animated: true)
-            state = .inEdgeZone(window: window, zone: edgeZone, screen: screen)
+            state = .inEdgeZone(window: window, zone: hit.zone, screen: screen)
             return
         }
 
@@ -204,21 +210,46 @@ final class SnapDetector {
         }
     }
 
-    private func hotZone(at pt: CGPoint, on screen: NSScreen) -> SnapZone {
+    /// Result of an edge-hit test. `isTopEdge` controls whether the flyout
+    /// should pop open — we want the layout chooser to appear on top-edge
+    /// drags only, not on left/right edge drags (those just snap directly).
+    private struct EdgeHit {
+        let zone: SnapZone
+        let isTopEdge: Bool
+        static let none = EdgeHit(zone: .none, isTopEdge: false)
+    }
+
+    private func edgeHit(at pt: CGPoint, on screen: NSScreen) -> EdgeHit {
         let t = max(Defaults.hotZoneThreshold, 20)
         let cornerT = t * 2
         let f = ScreenManager.toQuartz(screen.frame)
 
-        if pt.x <= f.minX + cornerT && pt.y <= f.minY + cornerT { return .topLeft }
-        if pt.x >= f.maxX - cornerT && pt.y <= f.minY + cornerT { return .topRight }
-        if pt.x <= f.minX + cornerT && pt.y >= f.maxY - cornerT { return .bottomLeft }
-        if pt.x >= f.maxX - cornerT && pt.y >= f.maxY - cornerT { return .bottomRight }
+        // Corners get priority — generous radius so they're easy to hit.
+        // They fire even on edges shared with another monitor, because
+        // quadrant snaps are useful on every screen.
+        if pt.x <= f.minX + cornerT && pt.y <= f.minY + cornerT { return EdgeHit(zone: .topLeft,     isTopEdge: false) }
+        if pt.x >= f.maxX - cornerT && pt.y <= f.minY + cornerT { return EdgeHit(zone: .topRight,    isTopEdge: false) }
+        if pt.x <= f.minX + cornerT && pt.y >= f.maxY - cornerT { return EdgeHit(zone: .bottomLeft,  isTopEdge: false) }
+        if pt.x >= f.maxX - cornerT && pt.y >= f.maxY - cornerT { return EdgeHit(zone: .bottomRight, isTopEdge: false) }
 
-        if pt.x <= f.minX + t { return .leftHalf }
-        if pt.x >= f.maxX - t { return .rightHalf }
-        if pt.y <= f.minY + t { return .topHalf }
-        if pt.y >= f.maxY - t { return .bottomHalf }
+        // Outer-edge filter: if another display sits beyond this edge, the
+        // user is just moving between monitors — don't ambush them with a snap.
+        if pt.x <= f.minX + t, !ScreenManager.hasNeighbor(of: screen, on: .left) {
+            return EdgeHit(zone: .leftHalf, isTopEdge: false)
+        }
+        if pt.x >= f.maxX - t, !ScreenManager.hasNeighbor(of: screen, on: .right) {
+            return EdgeHit(zone: .rightHalf, isTopEdge: false)
+        }
+        if pt.y <= f.minY + t, !ScreenManager.hasNeighbor(of: screen, on: .top) {
+            // Landscape: maximize. Portrait: top-half (more useful on a tall
+            // monitor than a thin full-screen strip). Either way the flyout
+            // opens so the user can override with another layout.
+            let zone: SnapZone = ScreenManager.isPortrait(screen) ? .topHalf : .full
+            return EdgeHit(zone: zone, isTopEdge: true)
+        }
 
+        // Bottom edge is intentionally a no-op — too easy to brush past the
+        // Dock and trigger an unwanted snap, almost never what the user means.
         return .none
     }
 

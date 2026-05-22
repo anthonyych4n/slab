@@ -60,6 +60,50 @@ enum ScreenManager {
     }
 }
 
+// MARK: - Orientation & adjacency
+
+extension ScreenManager {
+
+    /// `true` if the screen's visible area is taller than it is wide.
+    static func isPortrait(_ screen: NSScreen) -> Bool {
+        let f = screen.visibleFrame
+        return f.height > f.width
+    }
+
+    /// Whether another screen sits beyond the given edge of `screen`.
+    ///
+    /// Used to suppress edge hot-zones on internal seams between monitors —
+    /// dragging across two side-by-side displays shouldn't trigger a snap;
+    /// only outer (desktop-perimeter) edges should.
+    ///
+    /// Tolerance allows screens that aren't pixel-perfect aligned (mismatched
+    /// scaling factors, slightly different heights) to still register as
+    /// adjacent.
+    static func hasNeighbor(of screen: NSScreen, on edge: ScreenEdge, tolerance: CGFloat = 4) -> Bool {
+        let a = screen.frame   // AppKit coords, Y-up
+        for other in NSScreen.screens where other != screen {
+            let b = other.frame
+            // Vertical overlap (any shared Y range) for left/right edges,
+            // horizontal overlap for top/bottom edges.
+            let verticalOverlap   = max(0, min(a.maxY, b.maxY) - max(a.minY, b.minY))
+            let horizontalOverlap = max(0, min(a.maxX, b.maxX) - max(a.minX, b.minX))
+            switch edge {
+            case .left   where abs(b.maxX - a.minX) <= tolerance && verticalOverlap   > 0: return true
+            case .right  where abs(b.minX - a.maxX) <= tolerance && verticalOverlap   > 0: return true
+            case .top    where abs(b.minY - a.maxY) <= tolerance && horizontalOverlap > 0: return true
+            case .bottom where abs(b.maxY - a.minY) <= tolerance && horizontalOverlap > 0: return true
+            default: continue
+            }
+        }
+        return false
+    }
+}
+
+/// Identifies an edge of an `NSScreen`. Used by `hasNeighbor(of:on:)`.
+enum ScreenEdge {
+    case left, right, top, bottom
+}
+
 private extension CGRect {
     var area: CGFloat { width * height }
 }
