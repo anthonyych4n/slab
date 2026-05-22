@@ -8,9 +8,11 @@ options:
   groupSortPosition: top
 
 packages:
-  HotKey:
-    url: https://github.com/soffes/HotKey
-    from: "0.2.1"
+  # Used to be soffes/HotKey, but KeyboardShortcuts bundles both global
+  # registration and the SwiftUI Recorder view used in Preferences.
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "2.0.0"
 
 targets:
   Slab:
@@ -49,7 +51,7 @@ targets:
       ENABLE_HARDENED_RUNTIME: true
       ENABLE_PREVIEWS: "NO"
     dependencies:
-      - package: HotKey
+      - package: KeyboardShortcuts
 
   SlabTests:
     type: bundle.unit-test

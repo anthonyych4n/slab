@@ -1,4 +1,5 @@
 import SwiftUI
+import KeyboardShortcuts
 
 struct PreferencesView: View {
 
@@ -11,7 +12,7 @@ struct PreferencesView: View {
             LayoutsTab()
                 .tabItem { Label("Layouts", systemImage: "rectangle.split.3x1") }
         }
-        .frame(width: 520, height: 360)
+        .frame(width: 560, height: 480)
         .padding()
     }
 }
@@ -77,54 +78,41 @@ private struct GeneralTab: View {
 // MARK: - Hotkeys Tab
 
 private struct HotkeysTab: View {
-    private let rows: [(String, String)] = [
-        ("Snap Left",        "⌃⌥ ←"),
-        ("Snap Right",       "⌃⌥ →"),
-        ("Snap Up",          "⌃⌥ ↑"),
-        ("Snap Down",        "⌃⌥ ↓"),
-        ("Top-Left Quarter", "⌃⌥ 7"),
-        ("Top-Right Quarter","⌃⌥ 9"),
-        ("Bot-Left Quarter", "⌃⌥ 1"),
-        ("Bot-Right Quarter","⌃⌥ 3"),
-        ("Full Screen",      "⌃⌥ ↩"),
-        ("Open Layout Picker","⌃⌥ L"),
-        ("Unsnap",           "⌃⌥ Z"),
-    ]
 
+    // Group actions for visual structure — half/edge snaps, quadrants, then
+    // utilities. Each row in a group uses the KeyboardShortcuts.Recorder,
+    // which is the package's built-in capture-keystrokes-into-a-field view.
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Action").bold()
-                Spacer()
-                Text("Shortcut").bold()
+        Form {
+            Section("Halves & Full") {
+                row(.snapLeft); row(.snapRight); row(.snapTop)
+                row(.snapBottom); row(.snapFull)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.08))
-
-            Divider()
-
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(rows.indices, id: \.self) { i in
-                        HStack {
-                            Text(rows[i].0)
-                            Spacer()
-                            Text(rows[i].1)
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(i % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
-                        if i < rows.count - 1 { Divider() }
+            Section("Quadrants") {
+                row(.snapTopLeft); row(.snapTopRight)
+                row(.snapBotLeft); row(.snapBotRight)
+            }
+            Section("Utilities") {
+                row(.openPicker); row(.unsnap)
+            }
+            Section {
+                HStack {
+                    Button("Reset to Defaults", role: .destructive) {
+                        HotkeyManager.resetAllToDefaults()
                     }
+                    Spacer()
+                    Text("Click a row, press a key combo. Backspace clears it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .frame(minHeight: 200)
         }
-        .background(Color.secondary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.15)))
+        .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func row(_ action: HotkeyAction) -> some View {
+        KeyboardShortcuts.Recorder(action.displayName, name: action.shortcutName)
     }
 }
 
@@ -190,32 +178,34 @@ private struct LayoutsTab: View {
     }
 }
 
-// Small thumbnail for a layout
+// Small thumbnail for a layout. Uses absolute .position() so non-symmetric
+// layouts (3-column, Main+Sidebar, quad) render correctly inside the card
+// rather than overflowing into adjacent cells.
 struct LayoutThumbnail: View {
     let layout: AnyLayoutTemplate
 
     var body: some View {
         VStack(spacing: 4) {
             GeometryReader { geo in
-                ZStack {
+                ZStack(alignment: .topLeading) {
+                    Color.clear
                     ForEach(layout.zones) { zone in
+                        let w = zone.unitRect.width  * geo.size.width
+                        let h = zone.unitRect.height * geo.size.height
+                        // unitRect is Y-up; flip into SwiftUI's Y-down space.
+                        let x = zone.unitRect.minX * geo.size.width
+                        let y = geo.size.height - (zone.unitRect.minY + zone.unitRect.height) * geo.size.height
                         Rectangle()
-                            .fill(Color.accentColor.opacity(0.15))
-                            .overlay(Rectangle().strokeBorder(Color.accentColor, lineWidth: 1))
-                            .frame(
-                                width:  zone.unitRect.width  * geo.size.width,
-                                height: zone.unitRect.height * geo.size.height
-                            )
-                            .offset(
-                                x: zone.unitRect.minX * geo.size.width  - geo.size.width  / 2 + zone.unitRect.width  * geo.size.width  / 2,
-                                y: -(zone.unitRect.minY * geo.size.height - geo.size.height / 2 + zone.unitRect.height * geo.size.height / 2)
-                            )
+                            .fill(Color.accentColor.opacity(0.18))
+                            .overlay(Rectangle().strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1))
+                            .frame(width: max(0, w - 2), height: max(0, h - 2))
+                            .position(x: x + w / 2, y: y + h / 2)
                     }
                 }
             }
             .frame(height: 50)
             .background(Color.secondary.opacity(0.1))
-            .cornerRadius(4)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
 
             Text(layout.name)
                 .font(.caption)
