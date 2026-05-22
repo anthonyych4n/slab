@@ -23,6 +23,14 @@ final class SnapDetector {
     private var localMouseDrag: Any?
     private var localMouseUp: Any?
 
+    /// Timestamp of the last moment the cursor was inside the flyout's
+    /// sticky region or on an edge that would re-open the flyout. Used to
+    /// implement a short close-delay so brief jitter between the hot-zone
+    /// and the flyout doesn't dismiss the chooser (Windows 11 calls this
+    /// pattern a "safe triangle"; we use a time-based grace instead).
+    private var lastFlyoutEngagedAt: Date?
+    private let flyoutCloseDelay: TimeInterval = 0.35
+
     private let minDragDistance: CGFloat = 8
 
     var onDidSnap: ((_ layout: AnyLayoutTemplate,
@@ -71,6 +79,7 @@ final class SnapDetector {
         previewWindow.hide()
         flyoutWindow.hide()
         dragStart = nil
+        lastFlyoutEngagedAt = nil
         state = .idle
     }
 
@@ -117,23 +126,41 @@ final class SnapDetector {
         }
 
         let hit = edgeHit(at: qPt, on: screen)
-        let overFlyout = flyoutWindow.containsScreenPoint(akPt)
+        let overFlyoutStrict = flyoutWindow.containsScreenPoint(akPt)
+        let overFlyoutSticky = flyoutWindow.containsScreenPointSticky(akPt)
 
-        guard hit.zone != .none || overFlyout || flyoutWindow.isVisible else {
+        // Cursor is "engaged with the flyout system" when it's either inside
+        // the flyout's sticky region, on an edge that would (re)open the
+        // flyout, or already over a card. Tracking this lets us apply a
+        // small close-delay below.
+        let engaged = overFlyoutSticky || hit.flyoutAnchor != nil
+        if engaged { lastFlyoutEngagedAt = Date() }
+
+        guard hit.zone != .none || overFlyoutStrict || flyoutWindow.isVisible else {
             previewWindow.hide()
             flyoutWindow.hide()
+            lastFlyoutEngagedAt = nil
             state = .dragging(window: window)
             return
         }
 
-        // Flyout opens only when crossing the top edge. On left/right edges
-        // we want a direct, low-friction snap with no chooser UI.
-        if hit.isTopEdge {
-            flyoutWindow.show(on: screen, near: akPt)
-        } else if !overFlyout, flyoutWindow.isVisible {
-            // Cursor wandered off the top edge to a side edge — dismiss the
-            // chooser so it doesn't linger over a left/right snap preview.
-            flyoutWindow.hide()
+        // Open / reposition the flyout when the cursor is on a triggering
+        // edge. Anchor it flush against that edge — no dead gap between the
+        // hot-zone and the chooser, so the user can drag from edge into
+        // flyout in one motion.
+        if let anchor = hit.flyoutAnchor {
+            flyoutWindow.show(on: screen, anchor: anchor, cursor: akPt)
+        } else if !overFlyoutSticky, flyoutWindow.isVisible {
+            // Cursor wandered off the triggering edge and out of the flyout's
+            // sticky region. Apply a small close-delay to absorb jitter — if
+            // the cursor returns within `flyoutCloseDelay`, the flyout stays
+            // alive. Without this, dragging from the corridor between edge
+            // and flyout occasionally dismisses on the first frame off-edge.
+            if let last = lastFlyoutEngagedAt,
+               Date().timeIntervalSince(last) > flyoutCloseDelay {
+                flyoutWindow.hide()
+                lastFlyoutEngagedAt = nil
+            }
         }
 
         if let fHit = flyoutWindow.zoneAt(screenPoint: akPt) {
@@ -218,13 +245,14 @@ final class SnapDetector {
         }
     }
 
-    /// Result of an edge-hit test. `isTopEdge` controls whether the flyout
-    /// should pop open — we want the layout chooser to appear on top-edge
-    /// drags only, not on left/right edge drags (those just snap directly).
+    /// Result of an edge-hit test. `flyoutAnchor` (when non-nil) tells the
+    /// detector both that the chooser should appear AND which screen edge to
+    /// anchor it against — corners deliberately don't trigger the chooser
+    /// because direct quadrant snaps are the whole point of corner-snap.
     private struct EdgeHit {
         let zone: SnapZone
-        let isTopEdge: Bool
-        static let none = EdgeHit(zone: .none, isTopEdge: false)
+        let flyoutAnchor: SnapFlyoutWindow.Anchor?
+        static let none = EdgeHit(zone: .none, flyoutAnchor: nil)
     }
 
     private func edgeHit(at pt: CGPoint, on screen: NSScreen) -> EdgeHit {
@@ -235,25 +263,25 @@ final class SnapDetector {
         // Corners get priority — generous radius so they're easy to hit.
         // They fire even on edges shared with another monitor, because
         // quadrant snaps are useful on every screen.
-        if pt.x <= f.minX + cornerT && pt.y <= f.minY + cornerT { return EdgeHit(zone: .topLeft,     isTopEdge: false) }
-        if pt.x >= f.maxX - cornerT && pt.y <= f.minY + cornerT { return EdgeHit(zone: .topRight,    isTopEdge: false) }
-        if pt.x <= f.minX + cornerT && pt.y >= f.maxY - cornerT { return EdgeHit(zone: .bottomLeft,  isTopEdge: false) }
-        if pt.x >= f.maxX - cornerT && pt.y >= f.maxY - cornerT { return EdgeHit(zone: .bottomRight, isTopEdge: false) }
+        if pt.x <= f.minX + cornerT && pt.y <= f.minY + cornerT { return EdgeHit(zone: .topLeft,     flyoutAnchor: nil) }
+        if pt.x >= f.maxX - cornerT && pt.y <= f.minY + cornerT { return EdgeHit(zone: .topRight,    flyoutAnchor: nil) }
+        if pt.x <= f.minX + cornerT && pt.y >= f.maxY - cornerT { return EdgeHit(zone: .bottomLeft,  flyoutAnchor: nil) }
+        if pt.x >= f.maxX - cornerT && pt.y >= f.maxY - cornerT { return EdgeHit(zone: .bottomRight, flyoutAnchor: nil) }
 
         // Outer-edge filter: if another display sits beyond this edge, the
         // user is just moving between monitors — don't ambush them with a snap.
         if pt.x <= f.minX + t, !ScreenManager.hasNeighbor(of: screen, on: .left) {
-            return EdgeHit(zone: .leftHalf, isTopEdge: false)
+            return EdgeHit(zone: .leftHalf, flyoutAnchor: .left)
         }
         if pt.x >= f.maxX - t, !ScreenManager.hasNeighbor(of: screen, on: .right) {
-            return EdgeHit(zone: .rightHalf, isTopEdge: false)
+            return EdgeHit(zone: .rightHalf, flyoutAnchor: .right)
         }
         if pt.y <= f.minY + t, !ScreenManager.hasNeighbor(of: screen, on: .top) {
             // Landscape: maximize. Portrait: top-half (more useful on a tall
             // monitor than a thin full-screen strip). Either way the flyout
             // opens so the user can override with another layout.
             let zone: SnapZone = ScreenManager.isPortrait(screen) ? .topHalf : .full
-            return EdgeHit(zone: zone, isTopEdge: true)
+            return EdgeHit(zone: zone, flyoutAnchor: .top)
         }
 
         // Bottom edge is intentionally a no-op — too easy to brush past the

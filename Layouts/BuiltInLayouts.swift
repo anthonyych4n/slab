@@ -124,6 +124,19 @@ struct FullScreenLayout: LayoutTemplate {
     ]
 }
 
+/// Curated subset shown in the drag-to-edge flyout. Six is the sweet spot:
+/// big enough to cover the common layouts, small enough that the chooser
+/// stays glanceable and the cards have enough room to render usable previews.
+/// The full list lives in `builtInLayouts` (used by the Layout Picker).
+let flyoutLayouts: [AnyLayoutTemplate] = [
+    AnyLayoutTemplate(LeftRightHalves()),
+    AnyLayoutTemplate(TopBottomHalves()),
+    AnyLayoutTemplate(QuadGrid()),
+    AnyLayoutTemplate(ThreeColumns()),
+    AnyLayoutTemplate(MainSidebar()),
+    AnyLayoutTemplate(FullScreenLayout()),
+]
+
 /// All built-in layouts in display order.
 ///
 /// Ordered roughly by frequency-of-use on landscape monitors. Orientation-aware

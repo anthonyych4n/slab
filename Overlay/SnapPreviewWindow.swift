@@ -68,9 +68,9 @@ private final class PreviewContentView: NSView {
 
     private let blur: NSVisualEffectView = {
         let v = NSVisualEffectView()
-        // .popover is lighter than .hudWindow and reads as a native macOS
-        // overlay rather than a dark debug surface.
-        v.material = .popover
+        // .menu is the lightest material; matches Sequoia's window-snap
+        // preview surface, which is what we're trying to feel like.
+        v.material = .menu
         v.blendingMode = .behindWindow
         v.state = .active
         v.wantsLayer = true
@@ -116,16 +116,19 @@ private final class PreviewContentView: NSView {
 
         tintLayer.cornerRadius = 14
         tintLayer.cornerCurve = .continuous
-        // Subtle accent wash — outline reads first, fill second.
+        // Whisper-quiet accent wash — outline reads first, fill is barely
+        // there. macOS's Stage Manager / window-tile previews use almost no
+        // tint at all; over-tinting is the #1 thing that makes utilities
+        // like this look third-party.
         tintLayer.backgroundColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.10).cgColor
+            .withAlphaComponent(0.05).cgColor
         blur.layer?.addSublayer(tintLayer)
 
         borderLayer.cornerRadius = 14
         borderLayer.cornerCurve = .continuous
         borderLayer.borderWidth = 1.0
         borderLayer.borderColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.70).cgColor
+            .withAlphaComponent(0.55).cgColor
         borderLayer.backgroundColor = NSColor.clear.cgColor
         blur.layer?.addSublayer(borderLayer)
     }
@@ -143,9 +146,12 @@ private final class PreviewContentView: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // Subtle accent wash — outline reads first, fill second.
+        // Whisper-quiet accent wash — outline reads first, fill is barely
+        // there. macOS's Stage Manager / window-tile previews use almost no
+        // tint at all; over-tinting is the #1 thing that makes utilities
+        // like this look third-party.
         tintLayer.backgroundColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.10).cgColor
+            .withAlphaComponent(0.05).cgColor
         borderLayer.borderColor = NSColor.controlAccentColor
             .withAlphaComponent(0.95).cgColor
     }
