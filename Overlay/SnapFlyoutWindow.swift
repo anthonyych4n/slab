@@ -160,14 +160,21 @@ final class SnapFlyoutView: NSView {
     private let cardSpacing: CGFloat
     private let columns: Int
 
-    /// Background visual-effect view — `.menu` material matches the Sequoia
-    /// green-button hover menu, which is the closest macOS precedent for what
-    /// we're building. `.behindWindow` blend so the desktop / windows behind
-    /// show through subtly.
+    /// Background visual-effect view. `.menu` material matches the Sequoia
+    /// green-button hover menu.
+    ///
+    /// IMPORTANT: blending mode is `.withinWindow`, not `.behindWindow`. With
+    /// `.behindWindow` the material samples the screen framebuffer behind the
+    /// window — which includes the snap preview window underneath — so the
+    /// preview's blue tint bleeds through and makes the flyout look like
+    /// it's being "covered" by the preview even though z-order is correct.
+    /// `.withinWindow` renders the material from the window's own content,
+    /// giving an effectively opaque chooser surface that visibly sits above
+    /// the preview.
     private let blurView: NSVisualEffectView = {
         let v = NSVisualEffectView()
         v.material = .menu
-        v.blendingMode = .behindWindow
+        v.blendingMode = .withinWindow
         v.state = .active
         v.wantsLayer = true
         v.layer?.cornerRadius = 12
@@ -175,6 +182,9 @@ final class SnapFlyoutView: NSView {
         v.layer?.masksToBounds = true
         v.layer?.borderWidth = 0.5
         v.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.6).cgColor
+        // Solid backing color so .withinWindow has actual content to render
+        // its material against — without this the view would be transparent.
+        v.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         return v
     }()
 
