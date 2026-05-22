@@ -178,6 +178,13 @@ final class SnapFlyoutView: NSView {
         return v
     }()
 
+    /// Drawing surface that sits ON TOP of the blur view. Subviews in AppKit
+    /// render above the parent's `draw(_:)`, so the blur was previously
+    /// obscuring the cards (the "grey square" bug). Doing the drawing in a
+    /// dedicated overlay view fixes the ordering: blur draws first, this view
+    /// on top, cards visible.
+    private let cardsLayerView = SnapFlyoutCardsLayer()
+
     init(frame: NSRect,
          layouts: [AnyLayoutTemplate],
          topBar: CGFloat,
@@ -203,6 +210,17 @@ final class SnapFlyoutView: NSView {
             blurView.topAnchor.constraint(equalTo: topAnchor),
             blurView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+
+        // Card overlay — added AFTER the blur so it draws on top of it.
+        cardsLayerView.parent = self
+        addSubview(cardsLayerView)
+        cardsLayerView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            cardsLayerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            cardsLayerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            cardsLayerView.topAnchor.constraint(equalTo: topAnchor),
+            cardsLayerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
     }
 
     required init?(coder: NSCoder) {
@@ -212,7 +230,9 @@ final class SnapFlyoutView: NSView {
     func setHoveredZone(_ hit: SnapFlyoutWindow.ZoneHit?) {
         if hit == hoveredZone { return }
         hoveredZone = hit
-        needsDisplay = true
+        // Drawing happens on the overlay subview, so that's what needs to
+        // invalidate. Marking self dirty wouldn't redraw the cards.
+        cardsLayerView.needsDisplay = true
     }
 
     func zoneAt(localPoint: NSPoint) -> SnapFlyoutWindow.ZoneHit? {
@@ -242,7 +262,9 @@ final class SnapFlyoutView: NSView {
 
     override var isFlipped: Bool { false }
 
-    override func draw(_ dirtyRect: NSRect) {
+    /// Draw cards. Called by the overlay subview, not by AppKit, so the
+    /// drawing lands on top of the blur view rather than under it.
+    fileprivate func drawCardsContent(in bounds: NSRect) {
         refreshZoneFrames()
 
         // Title row — single short label, no subtitle. Compact and quiet so
@@ -263,9 +285,6 @@ final class SnapFlyoutView: NSView {
             cardPath.lineWidth = layoutHover ? 1.0 : 0.75
             cardPath.stroke()
 
-            // Each zone drawn inside the preview rect using the same Y-up
-            // coordinate flip the picker uses, so they stay visually
-            // consistent across the app.
             for entry in zoneFrames where entry.layout.id == card.layout.id {
                 let isHover = hoveredZone?.layoutID == entry.layout.id && hoveredZone?.zoneID == entry.zone.id
                 let visualRect = entry.rect.insetBy(dx: 1.5, dy: 1.5)
@@ -349,5 +368,21 @@ private extension NSRect {
         let dx = midX - point.x
         let dy = midY - point.y
         return hypot(dx, dy)
+    }
+}
+
+/// Transparent overlay that sits ON TOP of the blur view inside the flyout
+/// and renders the title + cards. Splitting this out is the actual fix for
+/// the "grey square" symptom — when drawing happened in `SnapFlyoutView.draw`
+/// (the parent), AppKit's subview rule meant the blur view drew on top and
+/// covered everything.
+fileprivate final class SnapFlyoutCardsLayer: NSView {
+    weak var parent: SnapFlyoutView?
+
+    override var isFlipped: Bool { false }
+    override var isOpaque: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        parent?.drawCardsContent(in: bounds)
     }
 }
