@@ -3,6 +3,8 @@ import Cocoa
 protocol MenuBarControllerDelegate: AnyObject {
     func menuBarDidRequestLayoutPicker()
     func menuBarDidRequestPreferences()
+    func menuBarDidRequestRestoreGroup()
+    func menuBarHasRestorableGroup() -> Bool
 }
 
 final class MenuBarController: NSObject, NSMenuDelegate {
@@ -18,8 +20,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             return
         }
 
-        button.image = nil
-        button.title = "Slab"
+        // Template SF Symbol — auto-tints to match the menu bar in light/dark
+        // mode and feels native compared to a plain text label. Falls back to
+        // the text title only if the symbol isn't available (very old systems).
+        if let image = NSImage(systemSymbolName: "rectangle.split.2x1",
+                               accessibilityDescription: "Slab") {
+            image.isTemplate = true
+            button.image = image
+            button.title = ""
+        } else {
+            button.title = "Slab"
+        }
         button.toolTip = "Slab – Window Snap"
 
         let menu = buildMenu()
@@ -45,6 +56,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         pickerItem.keyEquivalentModifierMask = [.control, .option]
         pickerItem.target = self
         menu.addItem(pickerItem)
+
+        // Restore last snap group (disabled when there's nothing to restore)
+        let restoreItem = NSMenuItem(title: "Restore Last Snap Group",
+                                     action: #selector(restoreGroup),
+                                     keyEquivalent: "g")
+        restoreItem.keyEquivalentModifierMask = [.control, .option]
+        restoreItem.target = self
+        restoreItem.isEnabled = delegate?.menuBarHasRestorableGroup() ?? false
+        menu.addItem(restoreItem)
 
         // Shortcuts reference (disabled = just a label)
         let hintItem = NSMenuItem(title: "⌃⌥ ← → ↑ ↓  Snap  |  ⌃⌥Z Unsnap", action: nil, keyEquivalent: "")
@@ -89,6 +109,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func openPicker() {
         delegate?.menuBarDidRequestLayoutPicker()
+    }
+
+    @objc private func restoreGroup() {
+        delegate?.menuBarDidRequestRestoreGroup()
     }
 
     @objc private func openPrefs() {

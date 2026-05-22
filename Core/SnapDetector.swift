@@ -189,6 +189,14 @@ final class SnapDetector {
         case .inEdgeZone(let window, let zone, let screen):
             guard let frame = ScreenManager.frame(for: zone, on: screen) else { return }
             windowManager.snap(window, to: frame)
+            // Map the edge snap onto an implicit multi-zone layout so Snap
+            // Assist can offer to fill the remaining zones — e.g. after a
+            // left-half snap, prompt for a right-half candidate.
+            if let mapping = zone.implicitLayoutAndZone {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+                    self?.onDidSnap?(mapping.layout, mapping.zone, window, screen)
+                }
+            }
         case .inFlyoutZone(let window, let hit, let screen, let frame):
             windowManager.snap(window, to: frame)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in

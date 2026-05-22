@@ -9,6 +9,8 @@ final class SnapPreviewWindow: NSWindow {
             backing: .buffered,
             defer: false
         )
+        // Explicit floating level — the flyout sits at .screenSaver, far
+        // above this, so when both are on screen the chooser always wins.
         level = .floating
         backgroundColor = .clear
         isOpaque = false

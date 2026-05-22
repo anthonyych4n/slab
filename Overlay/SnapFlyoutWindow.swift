@@ -29,7 +29,11 @@ final class SnapFlyoutWindow: NSPanel {
             defer: false
         )
 
-        level = NSWindow.Level(Int(CGWindowLevelForKey(.popUpMenuWindow)))
+        // .screenSaver (1000) sits well above .floating (3) where the snap
+        // preview lives. popUpMenu (101) was technically higher already, but
+        // Spaces-level interactions made it look like the preview was on top
+        // in some configurations. screenSaver is uncontestable.
+        level = .screenSaver
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
@@ -56,7 +60,9 @@ final class SnapFlyoutWindow: NSPanel {
         let preferredY = aboveY + frame.height <= sv.maxY - margin ? aboveY : belowY
         let y = min(max(preferredY, sv.minY + margin), sv.maxY - frame.height - margin)
         setFrameOrigin(NSPoint(x: x, y: y))
-        if isVisible { return }
+        // Always reassert front ordering — the preview window may have been
+        // shown more recently, and within the same Space the window server
+        // can reorder siblings even across levels in edge cases.
         alphaValue = 1
         orderFrontRegardless()
     }

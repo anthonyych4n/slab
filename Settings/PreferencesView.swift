@@ -93,7 +93,7 @@ private struct HotkeysTab: View {
                 row(.snapBotLeft); row(.snapBotRight)
             }
             Section("Utilities") {
-                row(.openPicker); row(.unsnap)
+                row(.openPicker); row(.unsnap); row(.restoreGroup)
             }
             Section {
                 HStack {

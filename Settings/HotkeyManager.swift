@@ -18,7 +18,8 @@ extension KeyboardShortcuts.Name {
     static let snapBotRight = Self("snapBotRight", default: .init(.keypad3,    modifiers: [.control, .option]))
     static let snapFull     = Self("snapFull",     default: .init(.return,     modifiers: [.control, .option]))
     static let openPicker   = Self("openPicker",   default: .init(.l,          modifiers: [.control, .option]))
-    static let unsnap       = Self("unsnap",       default: .init(.z,          modifiers: [.control, .option]))
+    static let unsnap        = Self("unsnap",        default: .init(.z, modifiers: [.control, .option]))
+    static let restoreGroup  = Self("restoreGroup",  default: .init(.g, modifiers: [.control, .option]))
 }
 
 // MARK: - Actions
@@ -31,6 +32,7 @@ enum HotkeyAction: String, CaseIterable, Hashable {
     case snapFull
     case openPicker
     case unsnap
+    case restoreGroup
 
     var shortcutName: KeyboardShortcuts.Name {
         switch self {
@@ -45,6 +47,7 @@ enum HotkeyAction: String, CaseIterable, Hashable {
         case .snapFull:     return .snapFull
         case .openPicker:   return .openPicker
         case .unsnap:       return .unsnap
+        case .restoreGroup: return .restoreGroup
         }
     }
 
@@ -62,6 +65,7 @@ enum HotkeyAction: String, CaseIterable, Hashable {
         case .snapFull:     return "Full Screen"
         case .openPicker:   return "Open Layout Picker"
         case .unsnap:       return "Unsnap"
+        case .restoreGroup: return "Restore Last Snap Group"
         }
     }
 }

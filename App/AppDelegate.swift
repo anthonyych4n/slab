@@ -69,6 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case .snapFull:     wm.snapFrontmost(to: .full)
         case .openPicker:   showLayoutPicker()
         case .unsnap:       wm.unsnapFrontmost()
+        case .restoreGroup: wm.groupStore.restoreLast(using: wm)
         }
     }
 
@@ -88,4 +89,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: MenuBarControllerDelegate {
     func menuBarDidRequestLayoutPicker() { showLayoutPicker() }
     func menuBarDidRequestPreferences() { showPreferences() }
+    func menuBarDidRequestRestoreGroup() {
+        guard let wm = windowManager else { return }
+        wm.groupStore.restoreLast(using: wm)
+    }
+    func menuBarHasRestorableGroup() -> Bool {
+        windowManager?.groupStore.hasRestorableGroup ?? false
+    }
 }

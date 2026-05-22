@@ -4,6 +4,7 @@ import ApplicationServices
 final class WindowManager {
 
     private let history = WindowHistory()
+    let groupStore = SnapGroupStore()
 
     // MARK: - Enumeration
 
@@ -60,6 +61,10 @@ final class WindowManager {
         guard let axWin = resolveAXWindow(for: window) else { return }
         history.record(windowID: window.id, frame: window.frame)
         setFrame(axWin, to: quartzFrame)
+        // Feed the group tracker after the snap actually lands — this is the
+        // single chokepoint every snap (drag, hotkey, picker, assist) flows
+        // through, so we only need to track here.
+        groupStore.record(window: window, quartzFrame: quartzFrame)
     }
 
     /// Restore the frontmost window to its pre-snap frame.
