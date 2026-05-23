@@ -160,17 +160,28 @@ final class SnapFlyoutView: NSView {
     private let cardSpacing: CGFloat
     private let columns: Int
 
+    /// Solid backing view drawn BEHIND the visual-effect view. Two jobs:
+    ///   1. Gives the `.withinWindow` blur something concrete to composite
+    ///      against. Without it, the material can render as effectively
+    ///      transparent and the preview window underneath shows through —
+    ///      which is what looked like a "z-order bug" even though the
+    ///      flyout's NSWindow level is correctly above the preview.
+    ///   2. Ensures the flyout is opaque at the framebuffer level, no
+    ///      ambiguity about what sits on top of what.
+    private let opaqueBackground: NSView = {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.cornerRadius = 12
+        v.layer?.cornerCurve = .continuous
+        v.layer?.masksToBounds = true
+        v.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        return v
+    }()
+
     /// Background visual-effect view. `.menu` material matches the Sequoia
-    /// green-button hover menu.
-    ///
-    /// IMPORTANT: blending mode is `.withinWindow`, not `.behindWindow`. With
-    /// `.behindWindow` the material samples the screen framebuffer behind the
-    /// window — which includes the snap preview window underneath — so the
-    /// preview's blue tint bleeds through and makes the flyout look like
-    /// it's being "covered" by the preview even though z-order is correct.
-    /// `.withinWindow` renders the material from the window's own content,
-    /// giving an effectively opaque chooser surface that visibly sits above
-    /// the preview.
+    /// green-button hover menu. `.withinWindow` blends with the opaque
+    /// backing view above instead of the screen framebuffer, so the snap
+    /// preview window cannot bleed through.
     private let blurView: NSVisualEffectView = {
         let v = NSVisualEffectView()
         v.material = .menu
@@ -182,9 +193,6 @@ final class SnapFlyoutView: NSView {
         v.layer?.masksToBounds = true
         v.layer?.borderWidth = 0.5
         v.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.6).cgColor
-        // Solid backing color so .withinWindow has actual content to render
-        // its material against — without this the view would be transparent.
-        v.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         return v
     }()
 
@@ -211,6 +219,18 @@ final class SnapFlyoutView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+
+        // Stack the three layers bottom-up. AppKit renders subviews on top
+        // of their preceding siblings, so the addSubview order IS the z
+        // order: opaqueBackground (deepest) → blurView → cardsLayerView.
+        addSubview(opaqueBackground)
+        opaqueBackground.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            opaqueBackground.leadingAnchor.constraint(equalTo: leadingAnchor),
+            opaqueBackground.trailingAnchor.constraint(equalTo: trailingAnchor),
+            opaqueBackground.topAnchor.constraint(equalTo: topAnchor),
+            opaqueBackground.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
 
         addSubview(blurView)
         blurView.translatesAutoresizingMaskIntoConstraints = false
