@@ -119,56 +119,96 @@ private struct HotkeysTab: View {
 // MARK: - Layouts Tab
 
 private struct LayoutsTab: View {
-    @State private var customLayouts = Defaults.customLayouts
+    @State private var customLayouts: [CustomLayout] = Defaults.customLayouts
+    @State private var editorPresented = false
+    /// nil = creating a new layout; non-nil = editing an existing one.
+    @State private var editorTarget: CustomLayout?
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Text("Built-in Layouts")
-                .font(.headline)
-                .padding(.bottom, 4)
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
-                ForEach(builtInLayouts) { layout in
-                    LayoutThumbnail(layout: layout)
-                }
-            }
-
-            Divider().padding(.vertical, 8)
-
-            HStack {
-                Text("Custom Layouts")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Built-in Layouts")
                     .font(.headline)
-                Spacer()
-                Button("Add…") { addCustomLayout() }
-            }
 
-            if customLayouts.isEmpty {
-                Text("No custom layouts yet.")
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
-            } else {
-                List(customLayouts, id: \.id) { layout in
-                    HStack {
-                        Image(systemName: layout.icon)
-                        Text(layout.name)
-                        Spacer()
-                        Button("Delete") { delete(layout) }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.red)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                    ForEach(builtInLayouts) { layout in
+                        LayoutThumbnail(layout: layout)
                     }
                 }
-                .frame(height: 120)
+
+                Divider().padding(.vertical, 4)
+
+                HStack {
+                    Text("Custom Layouts")
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        editorTarget = nil
+                        editorPresented = true
+                    } label: {
+                        Label("Add…", systemImage: "plus")
+                    }
+                }
+
+                if customLayouts.isEmpty {
+                    Text("No custom layouts yet. Click Add… to design one.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                } else {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                        ForEach(customLayouts) { layout in
+                            customLayoutCard(layout)
+                        }
+                    }
+                }
             }
+            .padding()
         }
-        .padding()
+        .sheet(isPresented: $editorPresented) {
+            CustomLayoutEditor(
+                isPresented: $editorPresented,
+                editing: editorTarget,
+                onSave: { saveLayout($0) }
+            )
+        }
     }
 
-    private func addCustomLayout() {
-        let new = CustomLayout(name: "Custom \(customLayouts.count + 1)", zones: [
-            LayoutZone(id: "left",  label: "Left",  unitRect: CGRect(x: 0, y: 0, width: 0.5, height: 1)),
-            LayoutZone(id: "right", label: "Right", unitRect: CGRect(x: 0.5, y: 0, width: 0.5, height: 1)),
-        ])
-        customLayouts.append(new)
+    /// Custom layout card with the same thumbnail as built-ins, plus a hover
+    /// overlay exposing Edit and Delete affordances.
+    private func customLayoutCard(_ layout: CustomLayout) -> some View {
+        LayoutThumbnail(layout: AnyLayoutTemplate(layout))
+            .overlay(alignment: .topTrailing) {
+                Menu {
+                    Button("Edit…") {
+                        editorTarget = layout
+                        editorPresented = true
+                    }
+                    Button("Delete", role: .destructive) {
+                        delete(layout)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                        .font(.title3)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .padding(4)
+            }
+    }
+
+    // MARK: - Persistence
+
+    private func saveLayout(_ layout: CustomLayout) {
+        if let idx = customLayouts.firstIndex(where: { $0.id == layout.id }) {
+            customLayouts[idx] = layout
+        } else {
+            customLayouts.append(layout)
+        }
         Defaults.customLayouts = customLayouts
     }
 
