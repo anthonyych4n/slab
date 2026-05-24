@@ -55,8 +55,6 @@ final class SnapFlyoutWindow: NSPanel {
             defer: false
         )
 
-        // .screenSaver (1000) sits well above the snap preview's .floating (3).
-        level = .screenSaver
         backgroundColor = .clear
         isOpaque = false
         // Rely on the visual-effect view inside SnapFlyoutView for the shadow
@@ -64,10 +62,22 @@ final class SnapFlyoutWindow: NSPanel {
         hasShadow = true
         isReleasedWhenClosed = false
         ignoresMouseEvents = true
-        isFloatingPanel = true
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .transient, .stationary, .fullScreenAuxiliary]
         contentView = flyoutView
+
+        // IMPORTANT: setting `isFloatingPanel = true` on an NSPanel silently
+        // forces the window level to the "floating panel" level, which is
+        // the same .floating level the snap preview uses — so even though
+        // the flyout's z-order LOOKED correct on paper, both windows ended
+        // up at the same level and the most-recently-ordered-front one
+        // (the preview, shown after the flyout) won. Skip isFloatingPanel
+        // entirely; set the level explicitly to .screenSaver (1000) as the
+        // last assignment so nothing can demote it.
+        //
+        // .canBecomeKey is false anyway, so we don't gain anything from the
+        // "floating panel" behavior in the first place.
+        level = .screenSaver
     }
 
     /// Show the flyout anchored to the given screen edge.
